@@ -1,0 +1,101 @@
+rm (list=ls())
+
+
+install.packages("maps")
+install.packages("devtools")
+install.packages("ggmap")
+
+#load libraries
+library(maps)
+library(devtools)  
+library(ggmap)
+
+register_google(key = "AIzaSyBlCZXGDK9dN3Vf_N1qdI6mPfFFCA34ubs")
+
+#load the map
+statesMap = map_data("state")
+
+# Output structure 
+str(statesMap)
+
+z = table(statesMap$group)
+table (z)
+
+#Draw the map
+
+ggplot(statesMap, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(fill = "white", color = "black") 
+
+# Read data 
+polling = read.csv("PollingImputed.csv")
+
+# Split the data
+Train = subset(polling, Year == 2004 | Year == 2008)
+Test = subset(polling, Year == 2012)
+
+colnames(Train)
+# Logistic Regression
+mod2 = glm(Republican~SurveyUSA+DiffCount + Rasmussen + PropR, data=Train, family="binomial")
+# Make predictions
+TestPrediction = predict(mod2, newdata=Test, type="response")
+binaries = TestPrediction>0.5
+ZerOnes = as.numeric(binaries)
+
+pred = data.frame(Test$State,TestPrediction,binaries,ZerOnes)
+
+pred$unclear = pred$TestPrediction>0.1 & pred$TestPrediction<0.9 
+
+table(pred)
+summary(pred)
+summary(mod2)
+
+# create new model
+mod3 = glm(Republican~SurveyUSA+DiffCount, data=Train, family="binomial")
+# Make predictions
+TestPrediction = predict(mod3, newdata=Test, type="response")
+binaries = TestPrediction>0.5
+ZerOnes = as.numeric(binaries)
+
+pred = data.frame(Test$State,TestPrediction,binaries,ZerOnes)
+
+pred$unclear = pred$TestPrediction>0.1 & pred$TestPrediction<0.9 
+
+table(pred)
+summary(pred)
+summary(mod3)
+
+pred$region = tolower(pred$Test.State)
+# Merge the data
+predictionMap = merge(statesMap, pred, by = "region")
+
+# Plot the data
+pred$region = tolower(pred$Test.State)
+predictionMap = merge(statesMap, pred, by = "region")
+# Please add the ordering. Last time missed!
+predictionMap = predictionMap[order(predictionMap$order),]
+
+# Create the map
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = ZerOnes)) +
+  geom_polygon(color = "black")
+
+
+# A more aesthetic plot using red/blues
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = ZerOnes))+
+  geom_polygon(color = "black") + scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+
+
+# We could also plot using our surety of prediction. Notice color of Oregon (middle of map).
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = TestPrediction))+
+  geom_polygon(color = "black") + scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+#adding size and linetype =3
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = TestPrediction))+
+  geom_polygon(color = "black", linetype = 3) + scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+#adding size and linetype =2
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = TestPrediction))+
+  geom_polygon(color = "black", linetype = 2) + scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+#adding size and linetype
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = TestPrediction))+
+  geom_polygon(color = "black", linetype = 1, size=3) + scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+#adding linetype and alpha
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = TestPrediction))+
+  geom_polygon(color = "black", linetype = 1, alpha=0.3) + scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
